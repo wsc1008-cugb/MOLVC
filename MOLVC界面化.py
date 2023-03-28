@@ -306,6 +306,7 @@ def mulop(i,ll,ul,volsim):
         def calculation(self, ptcl):
             """ 计算结果并保存"""
             newly_build_dir()
+            i=self.i
             mpthin(ptcl, i)      #先执行IN的流场模拟
             for i in get_file_list():
                 set_A=get_set_A(i[1])
@@ -316,7 +317,7 @@ def mulop(i,ll,ul,volsim):
                 set_bing=set_A | set_B #并集
                 set_cha=(set_A - set_B) | (set_B - set_A) #差集
                 zlc_save(i[0],set_jiao,set_bing,set_cha,set_A,set_B)
-                volume=len(set_jiao)*volsim
+                volume=len(set_jiao)*self.volsim
             return Vm
     problem = MyProblem(i,ll,ul,volsim)
     algorithm = NSGA2(
