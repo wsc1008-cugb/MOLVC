@@ -86,11 +86,11 @@ def newly_build_dir():
         if not os.path.exists(i):
             os.mkdir(i)
 
-def get_file_list():
+def get_file_list(inwell):
     """ 获取要处理文件的列表"""
     with open(timezlh,"r",encoding="utf-8") as f:
         l=f.read().strip().split("\n")
-    file_list=[(i,dir_path2+"/"+"cell_"+i+".txt",dir_path2+"/"+inname) for i in l]
+    file_list=[(i,dir_path2+"/"+"cell_"+i+".txt",dir_path2+"/"+"in_1800_%d.txt"%(int(inwell)/2+1)) for i in l]
     return file_list
 
 def get_cj_ijk():
@@ -184,9 +184,8 @@ def calculation_dylc(zj_ijk,set_A,n):
         save_csv(d + "/有效对流流场.csv", set_jiao)
         save_csv(d + "/总对流流场.csv", set_bing)
         save_csv(d + "/无效对流流场.csv", set_cha)
-
-def mpthin(ptcl,i):
-    inname="in_1800_%d.txt"%(i/2+1)#第i/2+1注井
+        
+def mpthin(ptcl,inwell):
     workspace = os.path.join('.')
     time=[]
     with open(r'D:\\工作需\\R程序计算\\R程序翻译\\timeC13.txt', 'r+') as obj:
@@ -206,7 +205,7 @@ def mpthin(ptcl,i):
     #在所有in内加入粒子
     data = pandas.read_table(r"D:\工作需\R程序计算\R程序翻译\井坐标文件\注井坐标C13.txt", sep="\\s+").values.tolist()
     In_wel=np.array(data)
-    inw=In_wel[i:i+2,:]
+    inw=In_wel[inwell:inwell+2,:]
     plocs = []
     pids = []
     for i in inw:
@@ -240,7 +239,7 @@ def mpthin(ptcl,i):
             budgetoutputoption="summary",
             referencetime=[0, 0, 0.0], #起始时间点
             stoptimeoption="specified",
-            stoptime=int(i)-1,
+            stoptime=int(i),
             zonedataoption="off",
             particlegroups=particlegroupin,
         )
@@ -267,7 +266,7 @@ def mpthin(ptcl,i):
         '''定义结果存储位置'''
         txtc=[]
         for i in Tlist:
-            txtcell = os.path.join(r"D:\工作需\R程序计算\R程序翻译\%s"%nm, inname)
+            txtcell = os.path.join(r"D:\工作需\R程序计算\R程序翻译\%s"%nm, "in_1800_%d.txt"%(int(inwell)/2+1))
             txtc.append(txtcell)
         wstxt=r"D:/工作需/R程序计算/R程序翻译/"+nm
         if not os.path.exists(wstxt):
@@ -276,101 +275,48 @@ def mpthin(ptcl,i):
             np.savetxt(f, carr, fmt="%s", delimiter="    ")
         e = time.time()
         print("%s/%s | %s completed in %.2fs"%(idx+1, len(Tlist), txtc[idx], e-s))
-def mulop(i,ll,ul,volsim):
-    mine = pandas.read_table(r'D:\工作需\R程序计算\R程序翻译\0222矿层.txt', sep="\\s+").values.tolist()
-    arrm=np.array(mine)
-    class MyProblem(ElementwiseProblem):
-        def __init__(self, i, ll, ul, volsim):
-            super().__init__(n_var=3,              # 变量数，注井在三个方向投放的粒子数
-                             n_obj=2,              # 目标数，最大化浸染面积和最小化投放粒子数
-                             n_ieq_constr=1,       # 约束条件数：每个方向最少有2个粒子，最多有10个粒子；
-                             xl=np.array([ll, ll, ll]),            # 下限
-                             xu=np.array([ul, ul, ul]),            # 上限
-                             vtype=int)   
+mine = pandas.read_table(r'D:\工作需\R程序计算\R程序翻译\0222矿层.txt', sep="\\s+").values.tolist()
+arrm=np.array(mine)
+class MyProblem(ElementwiseProblem):
+    def __init__(self, inwell,ll, ul, volsim):
+        super().__init__(n_var=3,              # 变量数，注井在三个方向投放的粒子数
+                            n_obj=2,              # 目标数，最大化浸染面积和最小化投放粒子数
+                            n_ieq_constr=1,       # 约束条件数：每个方向最少有2个粒子，最多有10个粒子；
+                            xl=np.array([ll, ll, ll]),            # 下限
+                            xu=np.array([ul, ul, ul]),            # 上限
+                            vtype=int)  
+        
+        self.inwell=inwell
+        self.volsim=volsim
 
-        def _evaluate(self, x, out, *args, **kwargs):
-            vol = self.calculation(x)
+    def _evaluate(self, x, out, *args, **kwargs):
+        vol = self.calculation(x)
 
-            '''f为目标值'''
-            f1 = x[0]*x[1]*x[2]        # 最小化粒子总数；x是长度为n_var的一维数组
-            f2 = -vol                  # 最大化有效对流体积
+        '''f为目标值'''
+        f1 = x[0]*x[1]*x[2]        # 最小化粒子总数；x是长度为n_var的一维数组
+        f2 = -vol                  # 最大化有效对流体积
 
-            '''g为约束条件转成求 <= 0'''
-            g1=x[0]*x[1]*x[2]-2000
-    #         g1 = intjudge(x[0])  #所有粒子数均为整数
-    #         g2 = intjudge(x[1])
-    #         g3 = intjudge(x[2])
+        '''g为约束条件转成求 <= 0'''
+        g1=x[0]*x[1]*x[2]-2000
 
-            out["F"] = [f1, f2] # 目标值，转成求最小值
-            out["G"] = [g1] #约束条件
-        def calculation(self, ptcl):
-            """ 计算结果并保存"""
-            newly_build_dir()
-            i=self.i
-            mpthin(ptcl, i)      #先执行IN的流场模拟
-            for i in get_file_list():
-                set_A=get_set_A(i[1])
-                set_B=get_set_B(i[2])
-                set_jiao=set_A & set_B #交集
-                arr_real=np.array([i for i in set_jiao])
-                Vm=cal_Lv(arrm,arr_real)
-                set_bing=set_A | set_B #并集
-                set_cha=(set_A - set_B) | (set_B - set_A) #差集
-                zlc_save(i[0],set_jiao,set_bing,set_cha,set_A,set_B)
-                volume=len(set_jiao)*self.volsim
-            return Vm
-    problem = MyProblem(i,ll,ul,volsim)
-    algorithm = NSGA2(
-    pop_size=2,  #种群规模（初代数量）
-    n_offsprings=10, #之后每一代的后代数目（叠加计算次数）
-    sampling=IntegerRandomSampling(),
-    crossover=SBX(prob=0.7, eta=15),
-    mutation=PM(prob=0.05, eta=20),
-    eliminate_duplicates = True
-    )
-    '''定义终止原则'''
-    termination = get_termination("n_gen", 2) #迭代计算  
-    '''执行多目标优化程序进程'''
-    res = minimize(problem,
-                   algorithm,
-                   termination,
-                   seed=1,
-                   save_history=True,
-                   verbose=True)
-
-    X = res.X # 变量
-    F = res.F # 目标    
-    print(X)
-    print(F)
-    '''存'''
-    with open(r'D:\工作需\R程序计算\R程序翻译\XF结果\X-%dlv.txt'%(i/2+1), 'w') as f:
-        np.savetxt(f, X, fmt="%s", delimiter="    ")
-    with open(r'D:\工作需\R程序计算\R程序翻译\XF结果\F-%dlv.txt'%(i/2+1), 'w') as f:
-        np.savetxt(f, F, fmt="%s", delimiter="    ")
-    '''读'''
-    arrF=np.array(F)
-    from sklearn.preprocessing import MinMaxScaler
-    nF = MinMaxScaler().fit_transform(arrF) 
-    '''一些注释需要注意的'''
-    #默认的feather_range为缩放到0-1之间，F中是包含f1和f2两个结果的
-    # nF = (F - F.min(axis=0)) / (F.max(axis=0) - F.min(axis=0))   
-    '''熵权法确定两个目标的权重'''
-    def Entropy(data):    
-        P_ij = data / data.sum(axis=0)
-        e_ij = (-1 / np.log(data.shape[0])) * P_ij * np.log(P_ij)
-        e_ij = np.where(np.isnan(e_ij), 0.0, e_ij)
-        return (1 - e_ij.sum(axis=0)) / (1 - e_ij.sum(axis=0)).sum()
-
-    weights = np.array([0.2,0.8])
-    print(weights)    
-    '''增强的标量化函数'''
-    decomp = ASF()
-    i = decomp.do(nF, 1/weights).argmin()
-
-    print("Best regarding ASF: Point \ni = %s\nF = %s" % (i, F[i]))
-    print(X[i])
-    '''绘制合适最佳点图像'''    
-
+        out["F"] = [f1, f2] # 目标值，转成求最小值
+        out["G"] = [g1] #约束条件
+    def calculation(self, ptcl):
+        """ 计算结果并保存"""
+        #第i/2+1注井
+        newly_build_dir()
+        mpthin(ptcl,self.inwell)      #先执行IN的流场模拟
+        for i in get_file_list(self.inwell):
+            set_A=get_set_A(i[1])
+            set_B=get_set_B(i[2])
+            set_jiao=set_A & set_B #交集
+            arr_real=np.array([i for i in set_jiao])
+            Vm=cal_Lv(arrm,arr_real)
+            set_bing=set_A | set_B #并集
+            set_cha=(set_A - set_B) | (set_B - set_A) #差集
+            zlc_save(i[0],set_jiao,set_bing,set_cha,set_A,set_B)
+            volume=len(set_jiao)*self.volsim
+        return Vm 
 
 class Application(tk.Tk):
     def __init__(self):
@@ -385,10 +331,10 @@ class Application(tk.Tk):
         right_frame.grid(row=0, column=1, padx=10, pady=10)
 
         # 创建标签和文本框，并分别添加到左右两个Frame中
-        self.label_i = ttk.Label(left_frame, text="注井号:")
-        self.label_i.grid(row=1, column=0, pady=5)
-        self.entry_i = ttk.Entry(right_frame)
-        self.entry_i.grid(row=1, column=0, pady=5)
+        self.label_inwell = ttk.Label(left_frame, text="注井号:")
+        self.label_inwell.grid(row=1, column=0, pady=5)
+        self.entry_inwell = ttk.Entry(right_frame)
+        self.entry_inwell.grid(row=1, column=0, pady=5)
 
         self.label_ll = ttk.Label(left_frame, text="单井粒子数下限:")
         self.label_ll.grid(row=2, column=0, pady=5)
@@ -425,18 +371,18 @@ class Application(tk.Tk):
         
         
     def run(self):
-        i = int(self.entry_i.get())
+        inwell = int(self.entry_inwell.get())
         ll = int(self.entry_ll.get())
         ul = int(self.entry_ul.get())
         volsim = self.entry_volsim.get()
         
         #输入参数验证
-        if not all([i, ll, ul, volsim]):
+        if not all([inwell, ll, ul, volsim]):
             messagebox.showerror("错误", "请输入所有参数！")
             return
 
         try:
-            i = int(i)
+            inwell = int(inwell)
             ll = int(ll)
             ul = int(ul)
             volsim = float(volsim)
@@ -445,38 +391,49 @@ class Application(tk.Tk):
             return
         
         #计算过程
-        mulop(i, ll, ul, volsim)
-        
-        #展示结果
-        inpic='%d'%i
-        from matplotlib.ticker import FuncFormatter
-        font = FontProperties(size=16) 
-        ax = figure.add_subplot(111, aspect='auto')
-        plt.rc('font',family='Times New Roman')
-        ax.scatter(arrF[:, 0], -arrF[:, 1], s=30, facecolors='none', edgecolors='royalblue')
-        ax.scatter(arrF[i, 0], -arrF[i, 1], marker="x", color="r", s=200)
-        ax.set_xlabel('Number of particles',fontproperties=font)
-        ax.set_ylabel(u'Leaching range (m$^{3}$)', fontproperties=font)
-        ax.set_title("KZ17240",fontproperties=font)
-        xt=np.linspace(0,1000,11)
-        yt=np.linspace(1000,8000,8)
-        ax.set_xlim(-5,1000)
-        ax.set_ylim(1000,8000)
-        ax.set_yticks(yt)
-        ax.set_xticks(xt)
-        def formatnum(x, pos):
-            return '%.2f×10$^{3}$' % (x/1e3)
-        formatter = FuncFormatter(formatnum)
-        # 设置坐标轴格式
-        plt.gca().yaxis.set_major_formatter(formatter)
-        ax.tick_params(axis='y',labelsize=10)
-        ax.tick_params(axis='x',labelsize=10)
-        xminorLocator = MultipleLocator(100) # 将x轴次刻度标签设置为5的倍数  
-        yminorLocator = MultipleLocator(1000)
-        ax.xaxis.set_minor_locator(xminorLocator)  # 设置x轴次刻度
-        ax.yaxis.set_minor_locator(yminorLocator)  # 设置y次刻度
-        fig.savefig(r'D:\工作需\R程序计算\R程序翻译\单注井粒子\%s.png'%inpic)
-            
+        problem = MyProblem(inwell, ll,ul,volsim)
+        algorithm = NSGA2(
+            pop_size=2,  #种群规模（初代数量）
+            n_offsprings=10, #之后每一代的后代数目（叠加计算次数）
+            sampling=IntegerRandomSampling(),
+            crossover=SBX(prob=0.7, eta=15),
+            mutation=PM(prob=0.05, eta=20),
+            eliminate_duplicates = True
+            )
+        '''定义终止原则'''
+        termination = get_termination("n_gen", 2) #迭代计算  
+        '''执行多目标优化程序进程'''
+        res = minimize(problem,
+                       algorithm,
+                       termination,
+                       seed=1,
+                       save_history=True,
+                       verbose=True)
+
+        X = res.X # 变量
+        F = res.F # 目标    
+        print(X)
+        print(F)
+        arrF=np.array(F)
+        from sklearn.preprocessing import MinMaxScaler
+        nF = MinMaxScaler().fit_transform(arrF) 
+        '''一些注释需要注意的'''
+        #默认的feather_range为缩放到0-1之间，F中是包含f1和f2两个结果的
+        # nF = (F - F.min(axis=0)) / (F.max(axis=0) - F.min(axis=0))   
+        '''熵权法确定两个目标的权重'''
+        def Entropy(data):    
+            P_ij = data / data.sum(axis=0)
+            e_ij = (-1 / np.log(data.shape[0])) * P_ij * np.log(P_ij)
+            e_ij = np.where(np.isnan(e_ij), 0.0, e_ij)
+            return (1 - e_ij.sum(axis=0)) / (1 - e_ij.sum(axis=0)).sum()
+
+        weights = np.array([0.2,0.8])
+        '''增强的标量化函数'''
+        decomp = ASF()
+        i = decomp.do(nF, 1/weights).argmin()
+
+        print("Best regarding ASF: Point \ni = %s\nF = %s" % (i, F[i]))
+        print(X[i])
 if __name__ == "__main__":
     app = Application()
     app.mainloop()
