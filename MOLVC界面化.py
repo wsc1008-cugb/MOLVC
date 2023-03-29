@@ -359,9 +359,7 @@ class Application(tk.Tk):
 
         #设置背景图片
         image_file = r"E:\G-case\C13-test\图片资料库\背景上.png"
-        self.background_image = tk.PhotoImage(file=image_file)
-        self.background_label = tk.Label(self, image=self.background_image)
-        self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
+
         
         #创建画布
         self.figure = Figure(figsize=(6, 4), dpi=100)
