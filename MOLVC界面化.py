@@ -31,6 +31,7 @@ from pymoo.decomposition.asf import ASF
 from pymoo.optimize import minimize
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+from PIL import Image, ImageTk
 import matplotlib.patches as mpatches
 import rpy2.robjects as robjects
 #从pyplot导入MultipleLocator类，这个类用于设置刻度间隔
@@ -319,6 +320,7 @@ class MyProblem(ElementwiseProblem):
         return Vm 
 
 class Application(tk.Tk):
+    background_image=None
     def __init__(self):
         super().__init__()
         self.title("Multi")
@@ -355,6 +357,12 @@ class Application(tk.Tk):
         self.button_run = ttk.Button(self, text="运行", command=self.run)
         self.button_run.grid(row=1, column=0, columnspan=2, pady=10)
 
+        #设置背景图片
+        image_file = r"E:\G-case\C13-test\图片资料库\背景上.png"
+        self.background_image = tk.PhotoImage(file=image_file)
+        self.background_label = tk.Label(self, image=self.background_image)
+        self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
+        
         #创建画布
         self.figure = Figure(figsize=(6, 4), dpi=100)
         self.ax = self.figure.add_subplot(111)
@@ -368,7 +376,6 @@ class Application(tk.Tk):
         # 让窗口自适应大小，自定义尺寸
         self.resizable(False, False)
         self.update()
-        
         
     def run(self):
         inwell = int(self.entry_inwell.get())
@@ -434,6 +441,37 @@ class Application(tk.Tk):
 
         print("Best regarding ASF: Point \ni = %s\nF = %s" % (i, F[i]))
         print(X[i])
+        
+        #展示结果
+        inpic='%d'%inwell
+        from matplotlib.ticker import FuncFormatter
+        font = FontProperties(size=16)
+        ax = figure.add_subplot(111, aspect='auto')
+        plt.rc('font',family='Times New Roman')
+        ax.scatter(arrF[:, 0], -arrF[:, 1], s=30, facecolors='none', edgecolors='royalblue')
+        ax.scatter(arrF[i, 0], -arrF[i, 1], marker="x", color="r", s=200)
+        ax.set_xlabel('Number of particles',fontproperties=font)
+        ax.set_ylabel(u'Leaching range (m$^{3}$)', fontproperties=font)
+        ax.set_title("KZ17240",fontproperties=font)
+        xt=np.linspace(0,1000,11)
+        yt=np.linspace(1000,8000,8)
+        ax.set_xlim(-5,1000)
+        ax.set_ylim(1000,8000)
+        ax.set_yticks(yt)
+        ax.set_xticks(xt)
+        def formatnum(x, pos):
+            return '%.2f×10$^{3}$' % (x/1e3)
+        formatter = FuncFormatter(formatnum)
+        # 设置坐标轴格式
+        plt.gca().yaxis.set_major_formatter(formatter)
+        ax.tick_params(axis='y',labelsize=10)
+        ax.tick_params(axis='x',labelsize=10)
+        xminorLocator = MultipleLocator(100) # 将x轴次刻度标签设置为5的倍数  
+        yminorLocator = MultipleLocator(1000)
+        ax.xaxis.set_minor_locator(xminorLocator)  # 设置x轴次刻度
+        ax.yaxis.set_minor_locator(yminorLocator)  # 设置y次刻度
+        fig.savefig(r'D:\工作需\R程序计算\R程序翻译\单注井粒子\%s.png'%inpic)
+            
 if __name__ == "__main__":
     app = Application()
     app.mainloop()
