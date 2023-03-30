@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+from tkinter import *
 import sys
 import os
 import shutil
@@ -320,12 +321,12 @@ class MyProblem(ElementwiseProblem):
         return Vm 
 
 class Application(tk.Tk):
-    background_image=None
     def __init__(self):
         super().__init__()
         self.title("Multi")
         self.geometry("1000x700")
         # 创建左右两个Frame
+        self.frame1=tk.Frame(self)
         left_frame = tk.Frame(self)
         left_frame.grid(row=0, column=0, padx=10, pady=10)
 
@@ -357,10 +358,6 @@ class Application(tk.Tk):
         self.button_run = ttk.Button(self, text="运行", command=self.run)
         self.button_run.grid(row=1, column=0, columnspan=2, pady=10)
 
-        #设置背景图片
-        image_file = r"E:\G-case\C13-test\图片资料库\背景上.png"
-
-        
         #创建画布
         self.figure = Figure(figsize=(6, 4), dpi=100)
         self.ax = self.figure.add_subplot(111)
@@ -374,6 +371,7 @@ class Application(tk.Tk):
         # 让窗口自适应大小，自定义尺寸
         self.resizable(False, False)
         self.update()
+        
         
     def run(self):
         inwell = int(self.entry_inwell.get())
@@ -473,3 +471,4 @@ class Application(tk.Tk):
 if __name__ == "__main__":
     app = Application()
     app.mainloop()
+    
