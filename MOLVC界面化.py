@@ -325,6 +325,7 @@ class Application(tk.Tk):
         super().__init__()
         self.title("Multi")
         self.geometry("1000x700")
+        self.add_background_image(r"D:\工作需\界面化试验\背景图上.png")
         # 创建左右两个Frame
         self.frame1=tk.Frame(self)
         left_frame = tk.Frame(self)
@@ -372,6 +373,17 @@ class Application(tk.Tk):
         self.resizable(False, False)
         self.update()
         
+    def add_background_image(self, image_path):
+        # 加载图片
+        img = Image.open(image_path)
+        photo = ImageTk.PhotoImage(img)
+        
+        # 将图片放置在窗口中
+        label = tk.Label(self, image=photo)
+        label.place(x=0, y=0, relwidth=1, relheight=1)
+        
+        # 保持图片引用，避免被 Python 垃圾回收
+        label.image = photo    
         
     def run(self):
         inwell = int(self.entry_inwell.get())
